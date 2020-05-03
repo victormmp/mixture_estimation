@@ -6,7 +6,7 @@ import numpy as np
 from scipy.special import softmax
 from scipy.stats import beta, binom
 from tqdm import tqdm
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Tuple
 from sklearn.neighbors import KNeighborsClassifier
 
 log_format = "[%(asctime)s] [%(levelname)s] [%(funcName)s(%(lineno)d)] - %(message)s"
@@ -132,10 +132,10 @@ class ExpectationMaximization:
         """
         Calculate the log-likelihood used as objective
         Args:
-            x:
+            x: Data matrix.
 
         Returns:
-
+            Log-likelihood of the data distribution.
         """
         likelihoods = []
         for sample in x:
@@ -143,6 +143,15 @@ class ExpectationMaximization:
         return np.sum(np.log(likelihoods))
 
     def fit(self, x: np.ndarray, statistics: List = None):
+        """
+        Adjust a gaussian mixture into a data distribution.
+        Args:
+            x: Data distribution matrix.
+            statistics: (Optional) Warm Start EM algorithm with clusters.
+
+        Returns:
+            Self object instance.
+        """
         logging.info(f"Calculating EM with {self.n_clusters} clusters.")
         self.start_clusters(x, statistics)
         tau = []
@@ -218,7 +227,16 @@ class PartialExpectationMaximization:
             likelihoods.append(np.sum([c['pi_k'] * likelihood(sample, c['mean'], c['sigma']) for c in stat]))
         return np.sum(np.log(likelihoods))
 
-    def _fit_new_cluster(self, x: np.ndarray, c_stat: Dict):
+    def _fit_new_cluster(self, x: np.ndarray, c_stat: Dict) -> Tuple[Union[float, np.ndarray], List[Dict]]:
+        """
+        Fit a new cluster into previous mixture with partial EM.
+        Args:
+            x: Data distribution matrix.
+            c_stat: New cluster statistics.
+
+        Returns:
+            [ New-cluster optimized log-likelihood, new cluster optimized statistics. ]
+        """
         tau = []
         error = np.inf
         complete_stat = self.cluster_stat + [c_stat]
@@ -263,6 +281,15 @@ class PartialExpectationMaximization:
         return self.log_likelihood, cluster_stat
 
     def get_best_cluster(self, x, new_clusters: List) -> Dict:
+        """
+        Get the best cluster from a set of candidates using log-likelihood measurement.
+        Args:
+            x: Data distribution
+            new_clusters: List with cluster statistics candidates
+
+        Returns:
+            The best cluster statistics.
+        """
         log_likelihoods = []
         fitted_clusters = []
         for i, c in enumerate(new_clusters):
@@ -271,7 +298,8 @@ class PartialExpectationMaximization:
             fitted_clusters += fitted_cluster[1]
             log_likelihoods.append(fitted_cluster[0])
 
-        best = np.argmax(log_likelihoods)
+        # Argmin instead of argmax because log-likelihood is a negative value.
+        best = np.argmin(log_likelihoods)
 
         return fitted_clusters[best]
 
@@ -393,12 +421,9 @@ class GaussianMixture:
 
 class GreedyLearningGM:
 
+    # TODO: Fix convergence problems.
+
     def __init__(self, n_components: int = 10, max_clusters: int = 20):
-
-        # if n_components % 2 != 0:
-        #     raise ValueError(f"Number of candidate components (n_components) must be even, not {n_components}.")
-
-
 
         self.n_components: int = n_components
         self.max_clusters: int = max_clusters
@@ -450,6 +475,11 @@ class GreedyLearningGM:
 class StepGM:
 
     def __init__(self, max_clusters: int = 20):
+        """
+        Implementation of the normalization test stop criteria with step by step k addition.
+        Args:
+            max_clusters: Maximum number of clusters to fit.
+        """
         self.max_clusters = max_clusters
         self.cluster_stat = None
         self.n_clusters = None
