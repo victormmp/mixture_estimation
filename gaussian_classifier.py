@@ -501,7 +501,7 @@ class StepGM:
             x_c = x[em.labels == index, :]
             distances = self._mahalanobis_distance(x_c, c)
             distances = sorted(distances)
-            f_hat = [r_n / x_c.shape[1] for r_n in distances]
+            f_hat = [n / x_c.shape[1] for n in range(len(distances))]
             a = c['mean'] * len(distances)
             b = (1-c['mean']) * len(distances)
             f = beta(a, b).cdf
